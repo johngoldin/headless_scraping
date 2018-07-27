@@ -1,0 +1,78 @@
+---
+title: "rvest Experiment: President Compensation"
+author: "John Goldin"
+output: html_notebook
+---
+
+This is an experiment to use rvest to scrape some info on compensation of university CEO's from the
+Chronicle of Higher Education.
+
+
+```{r}
+library(rvest)
+library(tidyverse)
+library(stringr)
+```
+
+Next lest do some actual scraping.
+
+```{r}
+# public_page <- read_html("https://www.chronicle.com/interactives/executive-compensation?cid=at&utm_source=at&utm_medium=en&elqTrackId=96983a9eb49d4f7fb200919f8f825d48&elq=44975a24d16b4d13bc145c3dd45cf40a&elqaid=19745&elqat=1&elqCampaignId=9127#id=table_public_2017")
+# private_page <- read_html("https://www.chronicle.com/interactives/executive-compensation?cid=at&utm_source=at&utm_medium=en&elqTrackId=96983a9eb49d4f7fb200919f8f825d48&elq=44975a24d16b4d13bc145c3dd45cf40a&elqaid=19745&elqat=1&elqCampaignId=9127#id=table_private_2015")
+
+public_page <- read_html("https://www.chronicle.com/interactives/executive-compensation?cid=wsinglestory#id=table_public_2017")
+
+# public_page <- read_html("R:/RMarkdown_workshop/public_page_export.html")
+# 
+# ceo_name_public <- public_page %>% 
+#   html_nodes("#table-13623_157289_2017_public span") %>%
+#   html_text()
+```
+
+Didn't work, because the Chronicle page is assembled with javascript.
+
+Follow [this link](https://www.datacamp.com/community/tutorials/scraping-javascript-generated-data-with-r) to
+learn out to use a headless browser to run the javascrpt and get the result html file.
+
+Also check out:
+https://www.r-bloggers.com/web-scraping-javascript-rendered-sites/
+[this one](https://datascienceplus.com/scraping-javascript-rendered-web-content-using-r/) talks about V8 package which uses same headless browser but packages in R if one has right javascript libraries.
+
+R:\RMarkdown_workshop\phantomjs-2.1.1-windows\bin
+
+```{r}
+system("R:\\RMarkdown_workshop\\phantomjs-2.1.1-windows\\bin\\phantomjs public_fetch.js")
+```
+
+
+```{r}
+# a macos version of running phantomjs
+system("/usr/local/Cellar/phantomjs/2.1.1/bin/phantomjs public_fetch.js")
+
+```
+
+```{r}
+public_page <- read_html("public_ceo_export.html")
+ceo_name_public <- public_page %>% 
+  html_nodes(".name") %>%
+  html_text()
+
+name <- public_page %>% html_nodes(".name") %>% html_text()
+college <- public_page %>% html_nodes(".college") %>% html_text()
+
+base <- public_page %>% html_nodes(".ech_base") %>% html_text() %>% str_replace_all("[[:alpha:]]|:| |\\$|,", "") %>% as.numeric()
+bonus <- public_page %>% html_nodes(".ech_bonus") %>% html_text() %>% str_replace_all("[[:alpha:]]|:| |\\$|,", "") %>% as.numeric()
+other <- public_page %>% html_nodes(".ech_other") %>% html_text() %>% str_replace_all("[[:alpha:]]|:| |\\$|,", "") %>% as.numeric()
+# .ech_detail retrieves all four elements so length is 200 rther than 50
+# we need to pull out every fourth element to get the total
+total <- public_page %>% html_nodes(".ech_detail") %>% html_text()
+total <- total[seq(1, 200, 4)] 
+if (!all(str_detect(total, "Total Compensation"))) print("something is wrong with total")
+total <- total %>% str_replace_all("[[:alpha:]]|:| |\\$|,", "") %>% as.numeric()
+
+if (!all.equal((base + bonus + other), total)) print("There is a problem.")
+
+asum <- base + bonus + other
+total - asum
+```
+
